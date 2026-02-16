@@ -1,93 +1,129 @@
-from src.utils.search import search_movie
-from src.utils.search import get_movie_details
+from src.utils.search import search_media, get_media_details, get_recommendations
 import sqlite3
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+API_KEY = os.getenv("TMDB_KEY")
 
 conn = sqlite3.connect('movie_root.db')
 cursor = conn.cursor()
 
+print("Bienvenido a Movie Root, el santuario de tu Ego cinéfilo.")
+
 while True:
-    print("Menu")
-    print("1. Agregar película")
-    print("2. Ver películas")
-    print("3. ver recomendaciones")
+    print("\n--- Menú Principal ---")
+    print("1. Agregar contenido (Película/Serie)")
+    print("2. Ver mi biblioteca")
+    print("3. Ver recomendaciones")
     print("4. Salir")
 
     option = input("Seleccione una opción: ")
     
     if option.strip() == '1':
-        name = input("Ingrese el nombre de la película: ")
-        info = search_movie(name)
-        if isinstance(info, str):
-            print(info)
+        print("\n¿Qué deseas agregar?")
+        print("1. Película")
+        print("2. Serie")
+        type_choice = input("Seleccione (1 o 2): ")
+        
+        media_type = "movie" if type_choice == '1' else "tv"
+        name = input(f"Ingrese el nombre de la { 'película' if media_type == 'movie' else 'serie' }: ")
+        
+        info = search_media(name, media_type)
+        if isinstance(info, str) or info is None:
+            print(info if info else "Operación cancelada.")
             continue
-        details = get_movie_details(info['id'])
-        
-        # title = info['title']
-        # overview = info['overview']
-        # vote_average = info['vote_average']
+            
+        details = get_media_details(info['id'], media_type)
+        if not details:
+            print("No se pudieron obtener los detalles.")
+            continue
 
-        cursor.execute('''
-            INSERT OR IGNORE INTO movies (tmdb_id, title, overview, average_score, relaese_date, director)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (int(info['id']), info['title'], info['overview'], float(info['vote_average']), info['release_date'], details['director']))
-        conn.commit()
-        print("Película agregada a la base de datos (simulado).")
-        score = input("¿Qué puntuación le das a la película? (1-10): ")
-        comment = input("¿Quieres agregar un comentario? (opcional): ")
-        cursor.execute('''
-            INSERT INTO my_ratings (tmdb_id, score, comment)
-            VALUES (?, ?, ?)
-        ''', (int(info['id']), float(score), comment))
-        conn.commit()
-        print(f"Puntuación guardada: {score}")
+        try:
+            cursor.execute('''
+                INSERT OR IGNORE INTO media (tmdb_id, title, overview, average_score, release_date, director, media_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                int(details['tmdb_id']), 
+                details['title'], 
+                details['overview'], 
+                float(details['vote_average']), 
+                details['release_date'], 
+                details['director'],
+                details['media_type']
+            ))
+            conn.commit()
 
-        for genre in details['genres']:
-            g_id = genre['id']
-            g_name = genre['name']
+            score = input(f"¿Qué puntuación le das a '{details['title']}'? (1-10): ")
+            comment = input("¿Quieres agregar un comentario? (opcional): ")
+            
             cursor.execute('''
-                INSERT OR IGNORE INTO genres (genre_id, name)
-                VALUES (?, ?)
-            ''', (int(g_id), g_name))
+                INSERT INTO my_ratings (tmdb_id, score, comment)
+                VALUES (?, ?, ?)
+            ''', (int(details['tmdb_id']), float(score), comment))
             conn.commit()
-            cursor.execute('''
-                INSERT OR IGNORE INTO movies_genres (tmdb_id, genre_id)
-                VALUES (?, ?)
-            ''', (int(info['id']), g_id))
+            
+            for genre in details['genres']:
+                cursor.execute('INSERT OR IGNORE INTO genres (genre_id, name) VALUES (?, ?)', (int(genre['id']), genre['name']))
+                cursor.execute('INSERT OR IGNORE INTO media_genres (tmdb_id, genre_id) VALUES (?, ?)', (int(details['tmdb_id']), genre['id']))
+            
+            for keyword in details['keywords']:
+                cursor.execute('INSERT OR IGNORE INTO keyword (keyword_id, keyword) VALUES (?, ?)', (int(keyword['id']), keyword['name']))
+                cursor.execute('INSERT OR IGNORE INTO media_keyword (tmdb_id, keyword_id) VALUES (?, ?)', (int(details['tmdb_id']), keyword['id']))
+            
             conn.commit()
-        
-        for keyword in details['keywords']:
-            k_id = keyword['id']
-            k_name = keyword['name']
-            cursor.execute('''
-                INSERT OR IGNORE INTO keyword (keyword_id, keyword)
-                VALUES (?, ?)
-            ''', (int(k_id), k_name))
-            conn.commit()
-            cursor.execute('''
-                INSERT OR IGNORE INTO movies_keyword (tmdb_id, keyword_id)
-                VALUES (?, ?)
-            ''', (int(info['id']), k_id))
-            conn.commit()
+            print(f"\n¡'{details['title']}' guardado con éxito!")
+            
+        except sqlite3.Error as e:
+            print(f"Error en la base de datos: {e}")
 
     elif option.strip() == '2':
         cursor.execute('''
-            SELECT m.title, r.score, r.comment, r.created_at
-            FROM movies m
+            SELECT m.title, m.media_type, r.score, r.comment, r.created_at
+            FROM media m
             JOIN my_ratings r ON m.tmdb_id = r.tmdb_id
             ORDER BY r.created_at DESC
         ''')
         ratings = cursor.fetchall()
         if ratings:
-            for title, score, comment, created_at in ratings:
-                print(f"{title} - Puntuación: {score} - Comentario: {comment} - Fecha: {created_at}")
+            print("\n--- Tu Biblioteca ---")
+            for title, m_type, score, comment, created_at in ratings:
+                tipo = "[PELI]" if m_type == 'movie' else "[SERIE]"
+                print(f"{tipo} {title} - Puntuación: {score} - Fecha: {created_at}")
+                if comment: print(f"   Nota: {comment}")
         else:
-            print("No has calificado ninguna película aún.")
+            print("\nNo has calificado nada aún.")
+
+    elif option.strip() == '3':
+        print("\n--- Recomendaciones ---")
+        print("1. Películas")
+        print("2. Series")
+        recom_choice = input("Seleccione (1 o 2): ")
+        recom_type = "movie" if recom_choice == '1' else "tv"
+        
+        recoms = get_recommendations(cursor, recom_type)
+        
+        if isinstance(recoms, list) and recoms:
+            start_index = 0
+            while start_index < len(recoms):
+                batch = recoms[start_index : start_index + 5]
+                for i, p in enumerate(batch):
+                    print(f"[{start_index + i + 1}] {p['title']} (Nota: {p.get('vote_average', 'N/A')})")
+                    print(f"    Sinopsis: {p.get('overview', 'Sin descripción')[:100]}...")
+                
+                start_index += 5
+                if start_index < len(recoms):
+                    more = input("\n¿Ver más? (s/n): ")
+                    if more.lower() != 's':
+                        break
+                else:
+                    print("\nNo hay más recomendaciones.")
+        else:
+            print(recoms if isinstance(recoms, str) else "No se encontraron resultados.")
+
     elif option.strip() == '4':
-        print("Saliendo del programa. ¡Hasta luego!")
+        print("Saliendo de Movie-log Root. ¡Hasta la próxima!")
         conn.close()
         break
     else:
-        print("Opción no válida. Por favor, seleccione una opción del 1 al 4.")
-
-
+        print("Opción no válida.")
