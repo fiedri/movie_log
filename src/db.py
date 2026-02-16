@@ -15,6 +15,7 @@ def crear_base_de_datos():
             title TEXT NOT NULL,
             overview TEXT,
             relaese_date TIMESTAMP,
+            director TEXT,
             average_score REAL
         )
     ''')

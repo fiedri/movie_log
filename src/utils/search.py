@@ -1,5 +1,6 @@
 import os
 import requests
+import json
 from .date import parse_date_year
 from dotenv import load_dotenv
 
@@ -38,3 +39,40 @@ def filter_movie(results):
     choice = int(input("Número de la película que deseas seleccionar: "))
     return results[choice - 1]
 
+def get_movie_details(tmdb_id):
+    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}"
+    params = {
+        "api_key": API_KEY,
+        "language": "es-ES",
+        "append_to_response": "credits,keywords"
+    }
+    
+    response = requests.get(url, params=params)
+    
+    if response.status_code == 200:
+        data = response.json()
+        
+        # 1. Extraer el Director de la lista de Crew
+        # Buscamos a la persona cuyo trabajo sea 'Director'
+        crew = data.get('credits', {}).get('crew', [])
+        director = next((member['name'] for member in crew if member['job'] == 'Director'), "Desconocido")
+        
+        # 2. Construir el objeto filtrado (Solo lo esencial para tu Ego)
+        movie_object = {
+            "tmdb_id": data.get("id"),
+            "title": data.get("title"),
+            "overview": data.get("overview"),
+            "vote_average": data.get("vote_average"),
+            "release_date": data.get("release_date"),
+            "director": director,
+            "genres": data.get("genres", []),        # Lista de {'id': X, 'name': '...'}
+            "keywords": data.get("keywords", {}).get("keywords", []) # Lista de {'id': X, 'name': '...'}
+        }
+        
+        return movie_object
+    
+    return None
+
+"""
+
+"""
