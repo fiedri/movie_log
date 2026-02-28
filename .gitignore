@@ -172,3 +172,5 @@ poetry.toml
 
 # LSP config files
 pyrightconfig.json
+
+movie_root.db

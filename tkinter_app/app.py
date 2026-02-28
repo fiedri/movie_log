@@ -50,7 +50,37 @@ class MovieRootGUI:
             self.tree_library.column(col, width=100)
         
         self.tree_library.pack(expand=True, fill="both", padx=10, pady=10)
+
+        # Bottom frame for action buttons
+        self.frame_actions = tk.Frame(self.tab_library)
+        self.frame_actions.pack(fill="x", padx=10, pady=(0, 10))
+        
+        self.btn_info = tk.Button(self.frame_actions, text="Mostrar más información", 
+                                 command=self.show_details, state=tk.DISABLED)
+        self.btn_info.pack(side="right")
+        
+        self.tree_library.bind("<<TreeviewSelect>>", self.on_tree_select)
         self.load_library()
+
+    def on_tree_select(self, event):
+        if self.tree_library.selection():
+            self.btn_info.config(state=tk.NORMAL)
+        else:
+            self.btn_info.config(state=tk.DISABLED)
+
+    def show_details(self):
+        selection = self.tree_library.selection()
+        if not selection:
+            return
+            
+        # The ID we store in the treeview is the tmdb_id
+        item_id = selection[0]
+        self.cursor.execute("SELECT title, director, overview FROM media WHERE tmdb_id = ?", (item_id,))
+        result = self.cursor.fetchone()
+        
+        if result:
+            title, director, overview = result
+            messagebox.showinfo(f"Detalles: {title}", f"Director/Creador: {director}\n\nSinopsis:\n{overview}")
 
     def load_library(self):
         # Clear existing
@@ -58,15 +88,19 @@ class MovieRootGUI:
             self.tree_library.delete(i)
             
         self.cursor.execute('''
-            SELECT m.media_type, m.title, r.score, r.comment, r.created_at
+            SELECT m.media_type, m.title, r.score, r.comment, r.created_at, m.tmdb_id
             FROM media m
             JOIN my_ratings r ON m.tmdb_id = r.tmdb_id
             ORDER BY r.created_at DESC
         ''')
         ratings = self.cursor.fetchall()
-        for media_type, title, score, comment, created_at in ratings:
+        for media_type, title, score, comment, created_at, tmdb_id in ratings:
             tipo = "Peli" if media_type == 'movie' else "Serie"
-            self.tree_library.insert("", "end", values=(tipo, title, score, comment, created_at))
+            # Using tmdb_id as iid to easily retrieve it later
+            self.tree_library.insert("", "end", iid=tmdb_id, values=(tipo, title, score, comment, created_at))
+        
+        # Disable button on reload
+        self.btn_info.config(state=tk.DISABLED)
 
     def setup_add_tab(self):
         # Media type selector
