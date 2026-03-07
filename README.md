@@ -1,6 +1,6 @@
 # Movie Root 🎬 (#ROOT Ecosystem)
 Movie Root es el centro de mando para tu consumo visual. Es una aplicación de escritorio desarrollada en Python con una interfaz gráfica en Tkinter, diseñada para que gestiones tu registro de películas y series sin perder tiempo en la mediocridad.
-Este módulo del ecosistema #ROOT filtra el ruido del contenido comercial y utiliza tu propio criterio (notas y comentarios) para recomendarte solo obras que cumplan con el estándar Global Tier.
+Este módulo del ecosistema #ROOT filtra el ruido del contenido comercial y utiliza tu propio criterio (calificación) para recomendarte solo obras que cumplan con el estándar Global Tier.
 ## 🚀 Características
  * Interfaz Gráfica (GUI): Experiencia visual intuitiva construida con Tkinter, dejando atrás la limitación de la línea de comandos.
  * Registro Dual Inteligente: Soporte completo para Películas y Series de TV, permitiéndote separar tu cine de élite de tus maratones de series.
@@ -21,4 +21,4 @@ pip install -r requirements.txt
    * Añade tu clave: TMDB_KEY=tu_api_key_aqui
 📖 Uso
 Para lanzar el centro de mando #ROOT, simplemente ejecuta el script principal desde tu terminal:
-python main.py
+python main.py o python run_gui.py
